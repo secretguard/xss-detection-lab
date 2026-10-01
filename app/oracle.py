@@ -213,17 +213,38 @@ def _finding(submitted, locator, *, reflected, raw, escaped, context,
     }
 
 
+# A realistic payload (marker + context-breaking characters) used by the
+# bundled sample files, so the negative control can tell escaped from raw.
+DEMO_PAYLOAD = f'{MARKER}"><svg/onload=alert(1)>'
+
+
+def _pick_needle(html_text: str) -> str:
+    """Choose a sensible needle for a saved file when none is given.
+
+    If the file contains the full demo payload (raw or escaped) use that so the
+    negative control works; otherwise fall back to the plain marker, matching
+    the assignment's ``python oracle.py body_context.html`` workflow.
+    """
+    if DEMO_PAYLOAD in html_text or html.escape(DEMO_PAYLOAD, quote=True) in html_text:
+        return DEMO_PAYLOAD
+    return MARKER
+
+
 # ----------------------------------------------------------------------
 # CLI - preserves the original workflow: analyse saved evidence files.
 #   python oracle.py body_context.html
 # ----------------------------------------------------------------------
-def analyze_file(filename, marker: str = MARKER) -> dict | None:
+def analyze_file(filename, needle: str | None = None) -> dict | None:
     path = Path(filename)
     if not path.exists():
         print(f"File not found: {filename}")
         return None
-    result = analyze(path.read_text(encoding="utf-8", errors="replace"), marker)
+    html_text = path.read_text(encoding="utf-8", errors="replace")
+    if needle is None:
+        needle = _pick_needle(html_text)
+    result = analyze(html_text, needle)
     print(f"\nFile:           {path.name}")
+    print(f"Looking for:    {needle}")
     print(f"Context:        {result['context']}  ({result['context_detail']})")
     print(f"Reflected:      {result['reflected']}")
     print(f"Raw reflected:  {result['raw_reflected']}")
@@ -232,10 +253,6 @@ def analyze_file(filename, marker: str = MARKER) -> dict | None:
     print(f"Severity:       {result['severity']}")
     return result
 
-
-# A realistic payload (marker + context-breaking characters) used by the
-# bundled sample files, so the negative control can tell escaped from raw.
-DEMO_PAYLOAD = f'{MARKER}"><svg/onload=alert(1)>'
 
 if __name__ == "__main__":
     import sys
@@ -246,10 +263,10 @@ if __name__ == "__main__":
             analyze_file(arg, needle)
     elif len(sys.argv) > 1:
         for arg in sys.argv[1:]:
-            analyze_file(arg, DEMO_PAYLOAD)
+            analyze_file(arg)          # auto-detect the needle per file
     else:
         # Default: run the bundled samples (body / attribute / script / escaped).
         samples = Path(__file__).resolve().parent.parent / "samples"
         for name in ("body_context.html", "attribute_context.html",
                      "script_context.html", "escaped_context.html"):
-            analyze_file(samples / name, DEMO_PAYLOAD)
+            analyze_file(samples / name)

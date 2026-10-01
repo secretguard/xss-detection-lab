@@ -129,5 +129,7 @@ pytest -q
 The `/target/*` endpoints are **intentionally vulnerable**. Run this only
 locally or on an isolated lab network, never on a public server.
 
-See **[CHANGES.md](CHANGES.md)** for how this version differs from the original
-prototype.
+## Next steps
+
+- **New here? Follow [GUIDE.md](GUIDE.md)** — a one-page run/demo/implementation walkthrough.
+- See **[CHANGES.md](CHANGES.md)** for how this version differs from the original prototype.

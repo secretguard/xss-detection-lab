@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XSS Detection Lab - Live Dashboard</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131c2e; --panel2:#0f1726; --line:#22304a;
+    --ink:#e6edf7; --muted:#8aa0bd; --accent:#4f8cff;
+    --crit:#ff4d6d; --high:#ff8a3d; --med:#ffcf4d; --low:#4f8cff; --safe:#2fd27a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Arial,sans-serif}
+  header{display:flex;align-items:center;gap:16px;padding:18px 28px;
+         border-bottom:1px solid var(--line);background:var(--panel2)}
+  header h1{font-size:18px;margin:0;letter-spacing:.2px}
+  .dot{width:9px;height:9px;border-radius:50%;background:#555;display:inline-block;margin-right:7px}
+  .dot.on{background:var(--safe);box-shadow:0 0 8px var(--safe)}
+  .conn{font-size:12px;color:var(--muted)}
+  .spacer{flex:1}
+  main{max-width:1200px;margin:22px auto;padding:0 20px}
+  .cards{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .card .k{font-size:12px;color:var(--muted);margin-bottom:6px}
+  .card .v{font-size:28px;font-weight:700}
+  .controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:18px}
+  .btn{background:var(--accent);color:#fff;border:0;padding:10px 16px;border-radius:9px;
+       font-size:14px;cursor:pointer;font-weight:600}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .toggle{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .toggle button{background:transparent;color:var(--muted);border:0;padding:10px 16px;cursor:pointer;font-weight:600}
+  .toggle button.active{background:var(--accent);color:#fff}
+  .scanbar{height:8px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;overflow:hidden;flex:1;min-width:160px;display:none}
+  .scanbar.show{display:block}
+  .scanbar i{display:block;height:100%;width:0;background:var(--accent);transition:width .4s}
+  .scanmsg{font-size:12px;color:var(--muted)}
+  .feed{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .feed h2{margin:0;padding:14px 18px;font-size:14px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:600}
+  .row{padding:14px 18px;border-bottom:1px solid var(--line);display:grid;
+       grid-template-columns:92px 150px 1fr 90px;gap:14px;align-items:start;cursor:pointer}
+  .row:hover{background:#17223a}
+  .sev{font-size:11px;font-weight:800;padding:5px 8px;border-radius:999px;text-align:center}
+  .sev.CRITICAL{background:rgba(255,77,109,.16);color:var(--crit)}
+  .sev.HIGH{background:rgba(255,138,61,.16);color:var(--high)}
+  .sev.MEDIUM{background:rgba(255,207,77,.16);color:var(--med)}
+  .sev.LOW{background:rgba(79,140,255,.16);color:var(--low)}
+  .sev.SAFE{background:rgba(47,210,122,.16);color:var(--safe)}
+  .sev.NONE{background:#2a2a2a;color:#999}
+  .ctx{font-weight:700;font-size:13px}
+  .meta{font-size:12px;color:var(--muted);margin-top:3px}
+  .pay{font-family:ui-monospace,Consolas,monospace;font-size:12px;background:var(--panel2);
+       border:1px solid var(--line);padding:3px 7px;border-radius:5px;word-break:break-all}
+  .src{font-size:11px;color:var(--muted);text-align:right}
+  .src .tag{display:inline-block;background:var(--panel2);border:1px solid var(--line);
+            padding:2px 7px;border-radius:999px}
+  .detail{display:none;grid-column:1/-1;background:var(--panel2);border-radius:9px;
+          padding:14px;margin-top:10px;border:1px solid var(--line)}
+  .detail.show{display:block}
+  .detail h4{margin:0 0 6px}
+  .detail p{margin:6px 0;color:#cdd8ea;font-size:13px;line-height:1.5}
+  .detail code{display:block;background:#0a0f1a;border:1px solid var(--line);padding:10px;
+               border-radius:7px;margin-top:8px;font-size:12px;overflow:auto;color:#9ecbff}
+  .empty{padding:40px;text-align:center;color:var(--muted)}
+  a{color:var(--accent)}
+  @media(max-width:860px){.cards{grid-template-columns:repeat(2,1fr)}.row{grid-template-columns:80px 1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🛡️ XSS Detection Lab</h1>
+  <span class="conn"><span id="dot" class="dot"></span><span id="connText">connecting…</span></span>
+  <div class="spacer"></div>
+  <a class="conn" href="/target/" target="_blank">open vulnerable target ↗</a>
+</header>
+
+<main>
+  <div class="cards">
+    <div class="card"><div class="k">Total detections</div><div class="v" id="s_total">0</div></div>
+    <div class="card"><div class="k">Exploitable</div><div class="v" style="color:var(--crit)" id="s_expl">0</div></div>
+    <div class="card"><div class="k">Critical</div><div class="v" style="color:var(--crit)" id="s_crit">0</div></div>
+    <div class="card"><div class="k">Safe (escaped)</div><div class="v" style="color:var(--safe)" id="s_safe">0</div></div>
+    <div class="card"><div class="k">From ZAP scan</div><div class="v" style="color:var(--accent)" id="s_zap">0</div></div>
+  </div>
+
+  <div class="controls">
+    <div>
+      <div class="scanmsg" style="margin-bottom:4px">Handling mode</div>
+      <div class="toggle" id="modeToggle">
+        <button data-mode="monitor" class="active">Monitor</button>
+        <button data-mode="protect">Protect</button>
+      </div>
+    </div>
+    <div style="flex:1"></div>
+    <button class="btn" id="scanBtn">▶ Run ZAP Scan</button>
+    <button class="btn ghost" id="clearBtn">Clear</button>
+  </div>
+
+  <div class="controls">
+    <div class="scanbar" id="scanbar"><i id="scanfill"></i></div>
+    <div class="scanmsg" id="scanmsg"></div>
+  </div>
+
+  <div class="feed">
+    <h2>Live detections — newest first</h2>
+    <div id="feed"><div class="empty" id="empty">No detections yet. Open the
+      <a href="/target/" target="_blank">vulnerable target</a> or run a ZAP scan.</div></div>
+  </div>
+</main>
+
+<script src="/static/dashboard.js"></script>
+</body>
+</html>

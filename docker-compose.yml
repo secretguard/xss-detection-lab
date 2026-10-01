@@ -1,0 +1,31 @@
+# XSS Detection Lab - full stack.
+#   app  : vulnerable target + realtime detection + live dashboard
+#   zap  : headless OWASP ZAP daemon that actively scans the target
+#
+# Start everything:   docker compose up --build
+# Dashboard:          http://localhost:8000/dashboard
+services:
+  app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      # where the app reaches the ZAP daemon (service name on the compose network)
+      ZAP_BASE: "http://zap:8080"
+      ZAP_API_KEY: ""                       # key disabled below - lab only
+      # what ZAP should scan: this app's own vulnerable target
+      ZAP_TARGET: "http://app:8000/target/"
+    depends_on:
+      - zap
+
+  zap:
+    image: ghcr.io/zaproxy/zaproxy:stable
+    command: >
+      zap.sh -daemon -host 0.0.0.0 -port 8080
+      -config api.addrs.addr.name=.*
+      -config api.addrs.addr.regex=true
+      -config api.disablekey=true
+    ports:
+      - "8090:8080"                         # ZAP API exposed for debugging

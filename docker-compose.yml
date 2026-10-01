@@ -27,5 +27,9 @@ services:
       -config api.addrs.addr.name=.*
       -config api.addrs.addr.regex=true
       -config api.disablekey=true
-    ports:
-      - "8090:8080"                         # ZAP API exposed for debugging
+    # The app reaches ZAP over the internal compose network (zap:8080), so the
+    # ZAP API does NOT need to be published to the host. If you want to poke the
+    # ZAP API from your machine for debugging, uncomment the block below and pick
+    # a free host port (change 8090 if it is already in use).
+    # ports:
+    #   - "8090:8080"
